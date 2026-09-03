@@ -23,7 +23,7 @@ from typing import Any, Optional
 
 import httpx
 from mcp.server.fastmcp import FastMCP
-from starlette.middleware import Middleware
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -37,6 +37,13 @@ DEVIN_API_BASE = os.environ.get("DEVIN_API_BASE", "https://api.devin.ai/v1").rst
 PLUGIN_BEARER_TOKEN = os.environ.get("PLUGIN_BEARER_TOKEN", "")
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8000"))
+# Comma-separated hostnames allowed in the Host header. Behind a proxy (Railway,
+# Render, ...) the request's Host is your public domain, not localhost, so the
+# MCP SDK's DNS-rebinding protection rejects it with 421 unless it's listed here.
+# Leave empty to disable that check entirely (safe here: the /mcp endpoint is
+# already gated by PLUGIN_BEARER_TOKEN). Set it to lock the server to your
+# domain, e.g. ALLOWED_HOSTS=your-app.up.railway.app
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h.strip()]
 
 if not DEVIN_API_KEY:
     # Fail loud at import so a misconfigured deploy is obvious.
@@ -86,8 +93,24 @@ async def _devin_request(
 # --------------------------------------------------------------------------- #
 # MCP server + tools
 # --------------------------------------------------------------------------- #
+if ALLOWED_HOSTS:
+    _transport_security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=ALLOWED_HOSTS + [f"{h}:*" for h in ALLOWED_HOSTS],
+        allowed_origins=[f"https://{h}" for h in ALLOWED_HOSTS]
+        + [f"http://{h}" for h in ALLOWED_HOSTS],
+    )
+else:
+    # No host allowlist configured — turn off DNS-rebinding protection so the
+    # server works behind any proxy/domain. The bearer-token gate still guards
+    # the endpoint.
+    _transport_security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=False
+    )
+
 mcp = FastMCP(
     name="devin",
+    transport_security=_transport_security,
     instructions=(
         "Tools to delegate coding tasks to Devin, the autonomous AI software "
         "engineer. Use create_devin_session to start a task, then "
