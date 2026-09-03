@@ -1,0 +1,15 @@
+# Railway deployment config.
+# Railway builds from the Dockerfile and injects a PORT env var at runtime,
+# which server.py already reads. It also provides the public HTTPS domain.
+
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# Railway probes this to know the container is healthy before routing traffic.
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+# If the process crashes, restart it (up to a few times) rather than staying down.
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 5
