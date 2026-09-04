@@ -58,14 +58,14 @@ Set these in `.env` (the server reads all of them):
 Generate a strong secret:
 
 ```bash
-python -c "import secrets; print(secrets.token_urlsafe(32))"
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
 ## 3. Run locally (optional test)
 
 ```bash
-pip install -r requirements.txt
-python server.py            # serves MCP at http://localhost:8000/mcp
+pip3 install -r requirements.txt
+python3 server.py            # serves MCP at http://localhost:8000/mcp
 ```
 
 Health check: `GET /health` → `{"status":"ok","oauth":true}`.
